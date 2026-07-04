@@ -1,6 +1,6 @@
 # sfamilyjar
 
-A family swear jar tracker for Sneha, Samridh, and Sulagna. Each swear costs 25&cent;.
+A family swear jar tracker for Daddy, Samridh, and Sulagna. Each swear costs 25&cent;.
 
 Single-file web app (`index.html`, no build step, no backend) — open it in a browser and go.
 
