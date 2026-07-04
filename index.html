@@ -4,6 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Family Swear Jar</title>
+<meta name="description" content="Track family swear jar deposits — 25c a slip." />
+<meta name="theme-color" content="#b45309" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Swear Jar" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -343,6 +350,8 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.entries)) {
+          const me = parsed.members.find(m => m.id === 'me');
+          if (me && me.name === 'Me') me.name = 'Daddy';
           return parsed;
         }
       }
@@ -579,6 +588,12 @@
   document.getElementById('timeframeSelect').addEventListener('change', renderStats);
 
   render();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js');
+    });
+  }
 </script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 
 A family swear jar tracker for Daddy, Samridh, and Sulagna. Each swear costs 25&cent;.
 
-Single-file web app (`index.html`, no build step, no backend) — open it in a browser and go.
+Static web app (`index.html`, no build step, no backend) — open it in a browser and go. It's also an installable PWA: add it to your phone's home screen for an app-like icon and offline use.
 
 - Log a swear for any family member (adds 25&cent; to the jar)
 - Undo the most recent swear for a family member, or delete any specific entry from the activity log
