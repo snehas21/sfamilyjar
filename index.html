@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Swear Jar" />
+<script src="firebase-config.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -55,6 +56,15 @@
     margin-top: 6px;
     font-size: 1rem;
   }
+
+  .sync-status {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .sync-status.synced { color: #06a97e; }
+  .sync-status.local { color: #b45309; }
 
   section {
     background: #ffffff;
@@ -298,6 +308,7 @@
       <div class="jar-icon">🫙</div>
       <h1>Family Swear Jar</h1>
       <p class="subtitle">25&cent; a slip. Click a name to rename it.</p>
+      <p class="sync-status" id="syncStatus"></p>
     </header>
 
     <section class="total-banner">
@@ -344,7 +355,13 @@
     { id: 'sulagna', name: 'Sulagna', avatar: '👩' },
   ];
 
-  function loadState() {
+  let state = { members: DEFAULT_MEMBERS.map(m => ({ ...m })), entries: [] };
+  let useFirebase = false;
+  let db = null;
+  // Bound once the Firebase Realtime Database SDK loads successfully.
+  let fbRef, fbGet, fbOnValue, fbPush, fbSet, fbRemove;
+
+  function loadLocalState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -359,45 +376,72 @@
     return { members: DEFAULT_MEMBERS.map(m => ({ ...m })), entries: [] };
   }
 
-  function saveState() {
+  function saveLocalState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
-  let state = loadState();
+  function setSyncStatus(mode) {
+    const el = document.getElementById('syncStatus');
+    if (mode === 'synced') {
+      el.textContent = '☁️ Synced across devices';
+      el.className = 'sync-status synced';
+    } else {
+      el.textContent = '📴 Saved on this device only';
+      el.className = 'sync-status local';
+    }
+  }
 
   function addSwear(memberId) {
+    if (useFirebase) {
+      fbPush(fbRef(db, 'entries'), { memberId, timestamp: Date.now(), amount: FINE_AMOUNT });
+      return;
+    }
     state.entries.push({
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
       memberId,
       timestamp: Date.now(),
       amount: FINE_AMOUNT,
     });
-    saveState();
+    saveLocalState();
     render();
   }
 
   function removeLastSwear(memberId) {
+    let target = null;
     for (let i = state.entries.length - 1; i >= 0; i--) {
-      if (state.entries[i].memberId === memberId) {
-        state.entries.splice(i, 1);
-        break;
-      }
+      if (state.entries[i].memberId === memberId) { target = state.entries[i]; break; }
     }
-    saveState();
+    if (!target) return;
+    if (useFirebase) {
+      fbRemove(fbRef(db, `entries/${target.id}`));
+      return;
+    }
+    state.entries = state.entries.filter(e => e.id !== target.id);
+    saveLocalState();
     render();
   }
 
   function deleteEntry(entryId) {
+    if (useFirebase) {
+      fbRemove(fbRef(db, `entries/${entryId}`));
+      return;
+    }
     state.entries = state.entries.filter(e => e.id !== entryId);
-    saveState();
+    saveLocalState();
     render();
   }
 
   function renameMember(memberId, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    if (useFirebase) {
+      fbSet(fbRef(db, `members/${memberId}`), trimmed);
+      return;
+    }
     const member = state.members.find(m => m.id === memberId);
-    if (member && newName.trim()) {
-      member.name = newName.trim();
-      saveState();
+    if (member) {
+      member.name = trimmed;
+      saveLocalState();
       render();
     }
   }
@@ -587,7 +631,95 @@
 
   document.getElementById('timeframeSelect').addEventListener('change', renderStats);
 
-  render();
+  function initFirebaseSync() {
+    const membersRef = fbRef(db, 'members');
+    const entriesRef = fbRef(db, 'entries');
+
+    fbGet(membersRef).then(snap => {
+      if (!snap.exists()) {
+        const local = loadLocalState();
+        const seed = {};
+        DEFAULT_MEMBERS.forEach(m => {
+          const localMatch = local.members.find(lm => lm.id === m.id);
+          seed[m.id] = (localMatch && localMatch.name) || m.name;
+        });
+        fbSet(membersRef, seed);
+      }
+    });
+
+    fbGet(entriesRef).then(snap => {
+      if (!snap.exists()) {
+        const local = loadLocalState();
+        if (local.entries.length > 0) {
+          const seed = {};
+          local.entries.forEach(e => {
+            seed[fbPush(entriesRef).key] = { memberId: e.memberId, timestamp: e.timestamp, amount: e.amount };
+          });
+          fbSet(entriesRef, seed);
+        }
+      }
+    });
+
+    fbOnValue(membersRef, snap => {
+      const val = snap.val() || {};
+      state.members = DEFAULT_MEMBERS.map(dm => ({
+        id: dm.id,
+        avatar: dm.avatar,
+        name: val[dm.id] || dm.name,
+      }));
+      render();
+    });
+
+    fbOnValue(entriesRef, snap => {
+      const val = snap.val() || {};
+      state.entries = Object.keys(val).map(key => ({
+        id: key,
+        memberId: val[key].memberId,
+        timestamp: val[key].timestamp,
+        amount: val[key].amount,
+      }));
+      render();
+    });
+  }
+
+  const firebaseConfig = window.FIREBASE_CONFIG;
+  const firebaseConfigured = firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('REPLACE_WITH');
+
+  if (firebaseConfigured) {
+    (async () => {
+      try {
+        const [{ initializeApp }, { getAuth, signInAnonymously }, dbModule] = await Promise.all([
+          import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js'),
+          import('https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js'),
+          import('https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js'),
+        ]);
+        fbRef = dbModule.ref;
+        fbGet = dbModule.get;
+        fbOnValue = dbModule.onValue;
+        fbPush = dbModule.push;
+        fbSet = dbModule.set;
+        fbRemove = dbModule.remove;
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        db = dbModule.getDatabase(app);
+
+        await signInAnonymously(auth);
+        useFirebase = true;
+        setSyncStatus('synced');
+        initFirebaseSync();
+      } catch (err) {
+        console.error('Firebase unavailable, falling back to local storage only', err);
+        state = loadLocalState();
+        setSyncStatus('local');
+        render();
+      }
+    })();
+  } else {
+    state = loadLocalState();
+    setSyncStatus('local');
+    render();
+  }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

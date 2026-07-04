@@ -1,8 +1,9 @@
-const CACHE_NAME = 'family-swear-jar-v1';
+const CACHE_NAME = 'family-swear-jar-v3';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './firebase-config.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
