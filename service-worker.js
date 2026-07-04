@@ -1,4 +1,4 @@
-const CACHE_NAME = 'family-swear-jar-v2';
+const CACHE_NAME = 'family-swear-jar-v3';
 const APP_SHELL = [
   './',
   './index.html',

@@ -2,11 +2,11 @@
 // This config is safe to make public — Firebase security is enforced by
 // Database Rules (see README.md), not by hiding these values.
 window.FIREBASE_CONFIG = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://REPLACE_WITH_YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "REPLACE_WITH_YOUR_PROJECT",
-  storageBucket: "REPLACE_WITH_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID",
+  apiKey: "AIzaSyADqteNEeMlULz2Pt-rJ6cuQnU4whhVpik",
+  authDomain: "sfamilyjar.firebaseapp.com",
+  databaseURL: "https://sfamilyjar-default-rtdb.firebaseio.com",
+  projectId: "sfamilyjar",
+  storageBucket: "sfamilyjar.firebasestorage.app",
+  messagingSenderId: "349447448909",
+  appId: "1:349447448909:web:2e2ba43804f63d46a92f04",
 };
